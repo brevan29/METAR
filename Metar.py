@@ -257,7 +257,7 @@ def temps(meteo):
     #description du temps
     if meteo=="DZ":
         return "Bruine" #Certains phénomènes sont assignés à des returns parce que bon, Bruine modéré, Bruine faible, ça ne se dit pas trop
-    elif meteo=="BCFG":#Il peut y avoir des combinaisons entre les decriptifs et les phhénomènes
+    elif meteo=="BCFG":#Il peut y avoir des combinaisons entre les decriptifs et les phénomènes
         tps="Bancs de brouillard"
     elif meteo=="FG":
         return "Brouillard"
