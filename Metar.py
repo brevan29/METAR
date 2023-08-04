@@ -3,7 +3,7 @@ import urllib.request
 Petite partie du code, développée par Mme Berger afin de lire un fichier contenant (presque) tous les noms d'aéroports
 (il fait 620 lignes, soit autant d'aéroports répertoriés)
 """
-fichier=open("nsd_cccc.txt",'r',encoding="utf-8")
+fichier=open("codes.txt",'r',encoding="utf-8")
 donnees=[]
 for ligne in fichier.readlines():
     donnees.append(ligne.strip().split(';'))
