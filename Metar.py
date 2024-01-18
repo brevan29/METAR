@@ -1,40 +1,77 @@
 import urllib.request
 """
-Petite partie du code, développée par Mme Berger afin de lire un fichier contenant (presque) tous les noms d'aéroports
+Petite permettant de lire un fichier contenant (presque) tous les noms d'aéroports
 (il fait 620 lignes, soit autant d'aéroports répertoriés)
 """
 fichier=open("codes.txt",'r',encoding="utf-8")
 donnees=[]
 for ligne in fichier.readlines():
     donnees.append(ligne.strip().split(';'))
-fichier.close
+fichier.close()
 
-def decodage(METAR):
+def décoder(code):
+    for i in range (len(code)):
+        if code[i]=='"':
+            return code[:i]
+    return code
+        
+def decodage(t,METAR):
     """
     La fonction décodage permet de dissocier les elements "utiles" des codes météorologiques METAR et TAF afin de les traiter un par un et par groupe d'éléments.
     L'argument à rentrer s'apelle METAR car initialement, j'ai développé ce code pour ce code mais comme le TAF reprends plus ou moins la même syntaxe je vais lui dédier une fonction, mais ça ne change rien de mettre un code TAF dans l'argument METAR :)
     La valeur d'entrée doit être une chaîne de caractère
     La valeur renvoyée en sortie sera une liste
     """
-    code=[]
-    partie=""
-    for i in range (len(METAR)):
-        if METAR[i]!=' ':
-            partie+=METAR[i] #Nous cherchons tous les éléments, delimités par les espaces (donc certains seront reliés après)
-        elif (i+4<len(METAR) and METAR[i+4]=="V" and METAR[i+5]!="V") or (len(partie)>5 and any(chr.isdigit() for chr in partie)==True and (METAR[i+1:i+4]=="FEW" or METAR[i+1:i+4]=="BKN" or METAR[i+1:i+4]=="SCT" or METAR[i+1:i+4]=="OVC" or METAR[i+1:i+4]=='///')): #Nous cherchons à savoir si le code indique un vent variable pouvent être confondu plus tard dans le code ou s'il y a plusieurs couches nuageuses.
-            continue #Nous le mettons dans le même groupe
-        elif i+4<len(METAR) and METAR[i+1]=='R' and METAR[i+4]=='/': #Nous cherchons si il y a un indicateur de visibilité de piste afin de le mettre avec la visibilité "classique"
-            partie+=' ' #Ici on dit de ne pas continuer mais de rajouter un espace pour ne pas interférer avec la méthode de séparation de la fonction dédiée
-        elif partie=='9999' and METAR[i+2].isdigit() and METAR[i+4].isdigit():
-            continue
+    if t.upper()=="M":
+        code=[]
+        partie=""
+        for i in range (len(METAR)):
+            if METAR[i]!=' ':
+                partie+=METAR[i] #Nous cherchons tous les éléments, delimités par les espaces (donc certains seront reliés après)
+            elif (i+4<len(METAR) and METAR[i+4]=="V" and METAR[i+5]!="V") or (len(partie)>5 and any(chr.isdigit() for chr in partie)==True and (METAR[i+1:i+4]=="FEW" or METAR[i+1:i+4]=="BKN" or METAR[i+1:i+4]=="SCT" or METAR[i+1:i+4]=="OVC" or METAR[i+1:i+4]=='///')): #Nous cherchons à savoir si le code indique un vent variable pouvent être confondu plus tard dans le code ou s'il y a plusieurs couches nuageuses.
+                continue #Nous le mettons dans le même groupe
+            elif i+4<len(METAR) and METAR[i+1]=='R' and METAR[i+4]=='/': #Nous cherchons si il y a un indicateur de visibilité de piste afin de le mettre avec la visibilité "classique"
+                partie+=' ' #Ici on dit de ne pas continuer mais de rajouter un espace pour ne pas interférer avec la méthode de séparation de la fonction dédiée
+            elif partie=='9999' and METAR[i+2].isdigit() and METAR[i+4].isdigit():
+                continue
+            else:
+                if partie!='AUTO' and partie!='METAR': #À l'heure actuelle, (presque) tous les aéroports émettent des METARs et TAFs automatiquement, et de plus nous aideront pas pour déterminer le temps qu'il fait (ou fera)
+                    code.append(partie) #On ajoute la partie différente d'AUTO dans la liste finale
+                partie='' #On réinitialise la variable "partie"
+        code.append(partie) #À la fin in n'y a pas d'espaces pour rajouter donc la dèrnière partie du code est ajouté en dehors de la boucle
+        if code[-1][-1]=="=": #Les codes TAFs et certains METARs ont un "=" pour signifier la fin du code et nous informent rien des situations météorologiques
+            code[-1]=code[-1][:-2]#La dernière partie du code se verra enlever le dernier caractère.
+        return code
+    else:
+        Code=METAR
+        chaine=""
+        liste=[]
+        ind=0
+        
+        while Code[ind] not in '0987654321':
+            chaine+=Code[ind]
+            mini_liste=[]
+            ind+=1
+        if chaine[-1]==" ":
+            liste.append(chaine[:-1])
         else:
-            if partie!='AUTO' and partie!='METAR': #À l'heure actuelle, (presque) tous les aéroports émettent des METARs et TAFs automatiquement, et de plus nous aideront pas pour déterminer le temps qu'il fait (ou fera)
-                code.append(partie) #On ajoute la partie différente d'AUTO dans la liste finale
-            partie='' #On réinitialise la variable "partie"
-    code.append(partie) #À la fin in n'y a pas d'espaces pour rajouter donc la dèrnière partie du code est ajouté en dehors de la boucle
-    if code[-1][-1]=="=": #Les codes TAFs et certains METARs ont un "=" pour signifier la fin du code et nous informent rien des situations météorologiques
-        code[-1]=code[-1][:-2]#La dernière partie du code se verra enlever le dernier caractère.
-    return code
+            liste.append(chaine)
+        chaine=""
+
+        while ind<len(Code):
+            if Code[ind]==" " and ind<len(Code)-5 and (Code[ind+1:ind+5]=='PROB' or (not chaine[:4]=='PROB' and Code[ind+1:ind+6]=="TEMPO" or Code[ind+1:ind+6]=="BECMG")):
+                mini_liste.append(chaine)
+                liste.append(mini_liste)
+                chaine,mini_liste="",[]
+            elif Code[ind]==" ":
+                mini_liste.append(chaine)
+                chaine=""
+            else:
+                chaine+=Code[ind]
+            ind+=1
+        mini_liste.append(chaine)
+        liste.append(mini_liste)
+        return liste
 
 def aeroport(OACI):
     """
@@ -44,7 +81,8 @@ def aeroport(OACI):
     """
     for i in range(len(donnees)):
         if donnees[i][0]==OACI:
-            return donnees[i][3:6:2]
+            return (("Code "),("pour "+donnees[i][3]+", "+donnees[i][5]))
+        
 def horaire(h):
     """
     La syntaxe horaire se definit comme telle JJHHMMz (Z se prononce zulu, singifiant ici UTC)
@@ -75,7 +113,7 @@ def vent(v):
     else: #aucun cas particulier n'a été détecté donc on utilise la version "classique"
         return "Vent de direction "+v[0:3]+"°, la force est de "+v[3:]
 
-def visu(d):
+def visibilite(d):
     """
     La fonction visu permet de rendre la valeur de visibilité et si défini la visibilité des piste (RVR, Runway Visual Range)
     Si la visibilité de la piste est mentionnée, la fonction Visual_Range sera invoquée
@@ -162,8 +200,8 @@ def nuages(n):
     """
     Cn=""
     Nuages=[] #J'ai séparé les couches nuageuses en couches afin de les distinguer
-    while n!='':
-        if n[4]=='/':
+    while n!='': #Je sais pas ce que je voulais faire mdr
+        if len(n)>4 and n[4]=='/':
             if n[:10]=="//////TCU":
                 Nuages.append(n[:10])
                 n=n[10:]
@@ -171,17 +209,23 @@ def nuages(n):
                 Nuages.append(n[:6])
                 n=n[6:]
             else:
-                 Nuages.append(n[:5])
-                 n=n[5:]
+                Nuages.append(n[:5])
+                n=n[5:]
+                
         elif len(n)>=8 and n[6:8]=='CB':
-             Nuages.append(n[:8])
-             n=n[8:]
+            Nuages.append(n[:8])
+            n=n[8:]
+            
+        elif len(n)>=9 and n[6:9]=='TCU':
+            Nuages.append(n)
+            n=n[9:]
+            
         elif len(n)>=9 and n[8]=='/':
-             Nuages.append(n[:9])
-             n=n[9:]
+            Nuages.append(n[:9])
+            n=""
         else:
-             Nuages.append(n[:6])
-             n=n[6:]
+            Nuages.append(n[:6])
+            n=n[6:]
     couches=len(Nuages)
     for i in range(len(Nuages)):
         base=""
@@ -189,7 +233,7 @@ def nuages(n):
             Cn+="Ciel invisible"
         elif Nuages[i]=="CB///" or Nuages[i]=='///CB': #CumulonimBus, nuage d'orage, pouvant altérer les conditions d'attérissages.
             Cn+="Présence de cumulonimbus"
-        elif Nuages[i]=="TCU///" or Nuages[i]=="///TCU": #Tower CUmulus, nuage naissant d'une instabilité
+        elif Nuages[i]=="TCU///" or Nuages[i]=="///TCU": #Towering CUmulus, nuage naissant d'une instabilité
             Cn+="Présence de cumulus bourgeonnants"
         elif Nuages[i]=="//////TCU":
             Cn+="Présence de cumulus bourgeonnants de nébulosité et altitude inconnus"
@@ -203,7 +247,7 @@ def nuages(n):
             Cn+="Ciel couvert "
         Nuages[i]=Nuages[i][3:] #les 3 premières lettres designent le "taux d'encombrement" du ciel, les trois chiffres suivant, la base de la couche nuageuse en centaines de pieds
         if Nuages[i][3:]=="CB":
-            Cn+="de cumulonimbus "
+            Cn+="dont des cumulonimbus "
         elif Nuages[i][-3:]=='///':
             if Cn[-3:]=='es ':
                 Cn+='inconnus '
@@ -211,11 +255,14 @@ def nuages(n):
                 Cn+='de nuages inconnus '
         if Nuages[i][0].isdigit():
             if Nuages[i][0]!="0": #On regarde si la première valeur designant la base est différente de 0
-                base+=Nuages[i][0]
-            base+='à '+Nuages[i][1]+"."+Nuages[i][2]+"00 pieds"
+                base+='à '+Nuages[i][0]+Nuages[i][1]+"."+Nuages[i][2]+"00 pieds"
+            else:
+                base+='à '+Nuages[i][1]+"."+Nuages[i][2]+"00 pieds"
             Cn+=base
+        if Nuages[i][-3:]=="TCU":
+            Cn+=", noter la présence de cumulus bourgeonnants"
         if couches-1>i:
-            Cn+="\n" #Si plusieurs couches pour rendre la lecture plus agréable, j'ai séparé les couches 
+            Cn+="\n" #Si plusieurs couches il y a, pour rendre la lecture plus agréable, j'ai séparé les couches 
     return Cn
 
 def température(t):
@@ -243,6 +290,7 @@ def temps(meteo):
     + met en valeur la force.
     la valeur d'entrée et de sortie sont des chaînes de caractères
     """
+    phen={"RA":"Pluie", "DZ":"Bruine", "FG":"Brouillard", "BR":"Brume", "BC":"Bancs de ", "SH":"Averses de ", "TS":"Orages", "SN":"Neige", "HZ":"Brume sèche", "FZ":"Se congelant, ", "GS":"Grêle"}
     tps=""
     it=""
     if len(meteo)%2==1:
@@ -250,47 +298,26 @@ def temps(meteo):
             it=" faible"
             meteo=meteo[1:]
         if meteo[0]=="+":
-            it=" forte"
+            it=" fort(e)"
             meteo=meteo[1:]
     else:
-        it=" modéré"
-    #description du temps
-    if meteo=="DZ":
-        return "Bruine" #Certains phénomènes sont assignés à des returns parce que bon, Bruine modéré, Bruine faible, ça ne se dit pas trop
-    elif meteo=="BCFG":#Il peut y avoir des combinaisons entre les decriptifs et les phénomènes
-        tps="Bancs de brouillard"
-    elif meteo=="FG":
-        return "Brouillard"
-    elif meteo=="BR":
-        return "Brume"
-    elif meteo=="RA":
-        tps="Pluie"
-    elif meteo=="SHRA":
-        tps="Averses de pluie"
-    elif meteo=="TSRA":
-        tps="Averses orageuses"
-    elif meteo=="TS":
-        tps="Orages"
-    elif meteo=="SN":
-        tps="Neige"
-    elif meteo=="HZ":
-        tps="Brume sèche"
-    elif meteo=="FZFG":
-        tps="Brouillanrd se congelant"
-    elif meteo=="SHSN":
-        tps="Averses de neige"
-    elif meteo=="FZRA":
-        tps="Pluie se congelant"
-    elif meteo=="FZDZ":
-        tps="Bruine se congelant"
-    elif meteo=="RADZ":
-        tps="Pluie / bruine"
-    elif meteo=="NSC":
+        it=" modéré(e)"
+        
+    #Cas Particuliers
+        
+    if meteo=="NSC":
         return "Pas de nuages significatifs"
     elif meteo=="NSW":
         return "Pas de temps significatif"
-    else:
-        return "Phénomène non décodé" 
+    #Desc. du temps
+    
+    for i in range (0,len(meteo),2):
+        try:
+            tps+=phen[meteo[i:i+2]]
+    
+        except KeyError: #S'il y a une erreur, c'est que je n'ai pas pris en compte un phen. décodable
+            return "Phénomène non décodé ("+meteo+")"
+        
     tps=tps+it
     return tps
 
@@ -318,21 +345,21 @@ def futur(ftr):
             return "Pas de changements à prévoir dans les deux heures à venir"
         elif element=='TEMPO':
             if element[0:2]=="FM" and element[0:2]=="TL":#recherche d'indicateurs
-                a.append("De "+element[2:4]+":"+ftr[4:]+" à "+element[2:4]+":"+element[4:]+",")
+                proch+=("De "+element[2:4]+":"+ftr[4:]+" à "+element[2:4]+":"+element[4:]+",\n     ")
             else:#Pas d'indicateurs
-                a.append("Temporairement")
+                proch+=('Temporairement,\n     ')
         elif element=="BECMG":
             if element[0:2]=="AT":#recherche d'indicateurs
-                a.append("Devient à "+element[2:4]+":"+element[4:]+":")
+                proch+=("Devient à "+element[2:4]+":"+element[4:]+":\n     ")
             else:
-                a.append("Devient")#pas d'indicateurs
+                proch+=("Devient,\n     ")#pas d'indicateurs
         elif any(chr.isdigit() for chr in element)==True: #Petite fonction que j'ai decouvert qui dit si il y a (ou non) des chiffres dans la chaîne de caractères
-                if "KT" in element:#recherches de phénomènes avec des lettres à l'intérieur
-                    a.append(vent(element))
-                elif "FEW" in element[0:3] or "SCT" in element[0:3] or "BKN" in element[0:3] or "OVC" in element[0:3]:
-                    a.append(nuages(element))
-                else:#seul phénomène n'utilisant pas de lettres
-                    a.append(visu(element))
+            if "KT" in element: #recherches de phénomènes avec des lettres à l'intérieur
+                a.append(vent(element))
+            elif "FEW" in element[0:3] or "SCT" in element[0:3] or "BKN" in element[0:3] or "OVC" in element[0:3]:
+                a.append(nuages(element))
+            else:#seul phénomène n'utilisant pas de lettres
+                a.append(visibilite(element))
         else: #seul phénomènes sans chiffres dedans
             a.append(temps(element))
     for i in range (len(a)):
@@ -348,16 +375,16 @@ def METAR(code):
     Resultat final
     La valeur entrée est le code METAR en chaîne de caractères
     """
-    code=decodage(code)
+    code=decodage("m",code)
     ICAO=code[0]
     ICAO=aeroport(ICAO)
-    print("Code METAR pour "+ICAO[0]+", "+ICAO[1])
+    print(ICAO[0]+"METAR "+ICAO[1])
     code=code[1:]
     print(horaire(code[0]))
     code=code[1:]
     print(vent(code[0]))
     code=code[1:]
-    print(visu(code[0]))
+    print(visibilite(code[0]))
     code=code[1:]
     while '///' not in code[0] and any(chr.isdigit() for chr in code[0])==False:
         print(temps(code[0]))
@@ -371,9 +398,63 @@ def METAR(code):
     if len(code)>1:
         code=code[1:]
         print(futur(code))
+        
+def TAF(code):
+    code=decodage("T",code)
+    ICAO=code[0][-4:]
+    ICAO=aeroport(ICAO)
+    print(ICAO[0]+"TAF "+ICAO[1])
+    print(horaire(code[1][0]))
+    print("Valable du",code[1][1][:2],"à",code[1][1][2:4],"heures, jusqu'au",code[1][1][5:7],"à",code[1][1][7:],"heures")
+    print()
+    code=code[1:]
+    code[0]=code[0][2:]
+    
+    for liste in code:
+        if liste[0][:4]=="PROB":
+            print("Avec une probabilité de",liste[0][4:6],"% :")
+            liste=liste[1:]
+        if liste!=code[0]:
+            print("Du",liste[1][:2],"à",liste[1][2:4],"heures, jusqu'au",liste[1][5:7],"à",liste[1][7:],"heures :")
+            del liste[1]
+        print(futur(liste))
+        print('')
+        
+def recherche():
+    t=input("Que voulez vous déchifffrer ? ")
+    t=t.upper()
+    code_aero=input("Entrer le code OACI de l'aéroport dont les codes METAR et TAF sont à décoder ") #J'aimerais du coup que ce soit le code OACI de l'aéroport
+    print()
+    if t=="METAR":
+        URL="https://tgftp.nws.noaa.gov/data/observations/metar/stations/"+code_aero.upper()+".TXT" #Le lien en question
+        request_url = urllib.request.urlopen(URL)
+        ligne=request_url.readlines()[1].decode("utf-8").strip()
+        METAR(ligne)
+        
+    elif t.upper() == "TAF":
+        URL="https://aerometeo.fr/web_taf.php?st="+code_aero.upper()
+        request_url = urllib.request.urlopen(URL)
+        ligne=request_url.readlines()[0][23:].decode()
+        ligne=décoder(ligne)
+        TAF(ligne)
+        
+    elif t=="TOUT":
+        URL="https://tgftp.nws.noaa.gov/data/observations/metar/stations/"+code_aero.upper()+".TXT" #Le lien en question
+        request_url = urllib.request.urlopen(URL)
+        ligne=request_url.readlines()[1].decode("utf-8").strip()
+        METAR(ligne)
+        
+        print()
+        print("____________________________________________________________________________________________________")
+        print()
+        
+        URL="https://aerometeo.fr/web_taf.php?st="+code_aero.upper()
+        request_url = urllib.request.urlopen(URL)
+        ligne=request_url.readlines()[0][23:].decode()
+        ligne=décoder(ligne)
+        TAF(ligne)
+    else:
+        print("pas faisable")
 
-code_aero=input("Entrer le code OACI de l'aéroport dont le code METAR est à décoder ") #J'aimerais du coup que ce soit le code OACI de l'aéroport
-URL="https://tgftp.nws.noaa.gov/data/observations/metar/stations/"+code_aero.upper()+".TXT" #Le lien en question
-request_url = urllib.request.urlopen(URL)
-ligne=request_url.readlines()[1].decode("utf-8").strip()
-METAR(ligne)
+if __name__=="__main__":
+    recherche()
